@@ -1,0 +1,7 @@
+{
+  "rewrites": [
+    { "source": "/api/auth/start",    "destination": "/api/auth-start.js" },
+    { "source": "/api/auth/callback", "destination": "/api/auth-callback.js" },
+    { "source": "/api/auth/poll",     "destination": "/api/auth-poll.js" }
+  ]
+}
