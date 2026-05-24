@@ -1,6 +1,7 @@
 import { pins } from './auth-start.js';
 
 export default async function handler(req, res) {
+res.setHeader('Access-Control-Allow-Origin', '*');
   const { code, state: pin } = req.query;
   const session = pins.get(pin);
   if (!session) return res.status(400).send('Invalid PIN');
