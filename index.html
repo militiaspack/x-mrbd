@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=600, height=600, initial-scale=1.0, user-scalable=no">
+  <title>X Feed</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 600px;
+      height: 600px;
+      overflow: hidden;
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    /* ── Screens ── */
+    .screen { display: none; width: 600px; height: 600px; position: absolute; top: 0; left: 0; }
+    .screen.active { display: flex; flex-direction: column; }
+
+    /* ── Status bar ── */
+    .status-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 20px 6px;
+      flex-shrink: 0;
+    }
+    .status-bar .logo { font-size: 20px; font-weight: 700; color: #1d9bf0; letter-spacing: -0.5px; }
+    .status-bar .tab-pills { display: flex; gap: 6px; }
+    .tab-pill {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid #333;
+      color: #888;
+      cursor: pointer;
+    }
+    .tab-pill.active { background: #1d9bf0; border-color: #1d9bf0; color: #fff; }
+
+    /* ── Tweet list ── */
+    .feed-area {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .tweet-card {
+      position: absolute;
+      width: 560px;
+      left: 20px;
+      background: transparent;
+      border: 2px solid transparent;
+      border-radius: 12px;
+      padding: 14px 16px;
+      transition: border-color 150ms ease, background 150ms ease;
+      cursor: pointer;
+    }
+    .tweet-card.focusable:focus {
+      outline: none;
+      border-color: #1d9bf0;
+      background: rgba(29, 155, 240, 0.08);
+      box-shadow: 0 0 20px rgba(29, 155, 240, 0.25);
+    }
+
+    .tweet-header { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    .avatar {
+      width: 38px; height: 38px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700; flex-shrink: 0;
+    }
+    .tweet-meta { display: flex; flex-direction: column; }
+    .tweet-name { font-size: 14px; font-weight: 700; color: #fff; }
+    .tweet-handle { font-size: 12px; color: #666; }
+    .tweet-time { font-size: 11px; color: #555; margin-left: auto; flex-shrink: 0; }
+
+    .tweet-text {
+      font-size: 16px;
+      line-height: 1.45;
+      color: #e7e9ea;
+      margin-bottom: 10px;
+      word-break: break-word;
+    }
+    .tweet-text .hashtag { color: #1d9bf0; }
+    .tweet-text .mention { color: #1d9bf0; }
+
+    .tweet-stats {
+      display: flex;
+      gap: 20px;
+      font-size: 12px;
+      color: #555;
+    }
+    .stat { display: flex; align-items: center; gap: 4px; }
+    .stat-icon { font-size: 13px; }
+    .stat.liked .stat-icon { color: #f91880; }
+    .stat.liked .stat-num { color: #f91880; }
+    .stat.rt .stat-icon { color: #00ba7c; }
+    .stat.rt .stat-num { color: #00ba7c; }
+
+    /* separator */
+    .tweet-sep { height: 1px; background: #1a1a1a; margin: 0 20px; }
+
+    /* ── Scroll hint ── */
+    .scroll-hint {
+      flex-shrink: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 28px;
+      gap: 16px;
+      color: #444;
+      font-size: 11px;
+    }
+    .scroll-hint span { display: flex; align-items: center; gap: 4px; }
+
+    /* ── Tweet Detail Screen ── */
+    #detail-screen {
+      background: #000;
+      padding: 0;
+    }
+    .detail-header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 20px 12px;
+      border-bottom: 1px solid #1a1a1a;
+      flex-shrink: 0;
+    }
+    .back-btn {
+      width: 36px; height: 36px;
+      border: 2px solid transparent;
+      border-radius: 50%;
+      background: transparent;
+      color: #1d9bf0;
+      font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: border-color 150ms ease, background 150ms ease;
+      flex-shrink: 0;
+    }
+    .back-btn.focusable:focus {
+      outline: none;
+      border-color: #1d9bf0;
+      background: rgba(29, 155, 240, 0.1);
+    }
+
+    .detail-author { display: flex; align-items: center; gap: 10px; }
+    .detail-name { font-size: 15px; font-weight: 700; }
+    .detail-handle { font-size: 12px; color: #666; }
+
+    .detail-body { flex: 1; overflow: hidden; padding: 16px 20px; }
+    .detail-text {
+      font-size: 20px;
+      line-height: 1.5;
+      color: #e7e9ea;
+      margin-bottom: 16px;
+    }
+    .detail-text .hashtag,
+    .detail-text .mention { color: #1d9bf0; }
+    .detail-timestamp { font-size: 13px; color: #555; margin-bottom: 16px; }
+
+    .detail-stats-row {
+      display: flex;
+      gap: 24px;
+      padding: 12px 0;
+      border-top: 1px solid #1a1a1a;
+      border-bottom: 1px solid #1a1a1a;
+      margin-bottom: 16px;
+    }
+    .detail-stat { text-align: center; }
+    .detail-stat-num { font-size: 16px; font-weight: 700; color: #e7e9ea; }
+    .detail-stat-label { font-size: 11px; color: #555; }
+
+    .action-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .action-btn {
+      flex: 1;
+      min-width: 100px;
+      height: 44px;
+      border: 2px solid transparent;
+      border-radius: 22px;
+      background: #111;
+      color: #888;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      cursor: pointer;
+      transition: border-color 150ms ease, background 150ms ease, color 150ms ease;
+    }
+    .action-btn.focusable:focus {
+      outline: none;
+      border-color: #1d9bf0;
+      background: rgba(29, 155, 240, 0.12);
+      color: #1d9bf0;
+    }
+    .action-btn.liked.focusable:focus { border-color: #f91880; color: #f91880; background: rgba(249, 24, 128, 0.1); }
+
+    /* ── Nav hint at bottom ── */
+    .nav-hint {
+      flex-shrink: 0;
+      padding: 6px 20px 10px;
+      font-size: 11px;
+      color: #333;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ── Loading screen ── */
+    #loading-screen {
+      background: #000;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .loader-logo { font-size: 48px; font-weight: 900; color: #1d9bf0; }
+    .loader-dots { display: flex; gap: 6px; }
+    .loader-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: #1d9bf0;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    .loader-dot:nth-child(2) { animation-delay: 0.2s; }
+    .loader-dot:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes pulse { 0%,100%{opacity:0.2;transform:scale(0.8)} 50%{opacity:1;transform:scale(1)} }
+
+    /* ── Notification badge ── */
+    .notif-badge {
+      position: absolute;
+      top: -3px; right: -3px;
+      width: 8px; height: 8px;
+      background: #f91880;
+      border-radius: 50%;
+    }
+
+    .tweet-card.liked .like-icon { color: #f91880; }
+
+    /* ── Login screen ── */
+    #login-screen { background: #000; align-items: center; justify-content: center; }
+    .login-logo { font-size: 40px; font-weight: 900; color: #1d9bf0; margin-bottom: 24px; }
+    .login-instruction { font-size: 14px; color: #888; margin-bottom: 6px; text-align: center; }
+    .login-url { font-size: 15px; color: #1d9bf0; margin-bottom: 28px; text-align: center; }
+    .pin-label { font-size: 12px; color: #555; margin-bottom: 10px; letter-spacing: 2px; }
+    .pin-display { display: flex; gap: 12px; margin-bottom: 28px; }
+    .pin-digit {
+      width: 64px; height: 80px; border: 2px solid #1d9bf0; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px; font-weight: 700; color: #fff;
+      box-shadow: 0 0 16px rgba(29,155,240,0.3);
+    }
+    .login-status { font-size: 13px; color: #555; display: flex; align-items: center; gap: 8px; }
+    .pulse-dot { width: 8px; height: 8px; border-radius: 50%; background: #1d9bf0; animation: pulse 1.2s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" class="screen">
+  <div class="login-logo">𝕏</div>
+  <div class="login-instruction">Open this on your phone to sign in:</div>
+  <div class="login-url" id="login-url"></div>
+  <div class="pin-label">YOUR CODE</div>
+  <div class="pin-display" id="pin-display"></div>
+  <div class="login-status">
+    <div class="pulse-dot"></div>
+    <span id="login-status-msg">Waiting for sign in...</span>
+  </div>
+</div>
+
+<!-- LOADING SCREEN -->
+<div id="loading-screen" class="screen active">
+  <div class="loader-logo">𝕏</div>
+  <div class="loader-dots">
+    <div class="loader-dot"></div>
+    <div class="loader-dot"></div>
+    <div class="loader-dot"></div>
+  </div>
+</div>
+
+<!-- FEED SCREEN -->
+<div id="feed-screen" class="screen">
+  <div class="status-bar">
+    <div class="logo">𝕏</div>
+    <div class="tab-pills">
+      <div class="tab-pill active" id="tab-for-you">For You</div>
+      <div class="tab-pill" id="tab-following">Following</div>
+    </div>
+    <div style="position:relative">
+      <span style="font-size:18px;color:#888">🔔</span>
+      <div class="notif-badge"></div>
+    </div>
+  </div>
+
+  <div class="feed-area" id="feed-area"></div>
+
+  <div class="scroll-hint">
+    <span>↑↓ scroll</span>
+    <span>↵ read</span>
+  </div>
+</div>
+
+<!-- DETAIL SCREEN -->
+<div id="detail-screen" class="screen">
+  <div class="detail-header">
+    <button class="back-btn focusable" id="back-btn" tabindex="0">←</button>
+    <div class="detail-author">
+      <div class="avatar" id="detail-avatar" style="width:42px;height:42px;font-size:16px"></div>
+      <div>
+        <div class="detail-name" id="detail-name"></div>
+        <div class="detail-handle" id="detail-handle"></div>
+      </div>
+    </div>
+  </div>
+  <div class="detail-body">
+    <div class="detail-text" id="detail-text"></div>
+    <div class="detail-timestamp" id="detail-ts"></div>
+    <div class="detail-stats-row">
+      <div class="detail-stat">
+        <div class="detail-stat-num" id="d-replies"></div>
+        <div class="detail-stat-label">Replies</div>
+      </div>
+      <div class="detail-stat">
+        <div class="detail-stat-num" id="d-retweets"></div>
+        <div class="detail-stat-label">Reposts</div>
+      </div>
+      <div class="detail-stat">
+        <div class="detail-stat-num" id="d-likes"></div>
+        <div class="detail-stat-label">Likes</div>
+      </div>
+      <div class="detail-stat">
+        <div class="detail-stat-num" id="d-views"></div>
+        <div class="detail-stat-label">Views</div>
+      </div>
+    </div>
+    <div class="action-row">
+      <button class="action-btn focusable" id="action-like" tabindex="0">♡ Like</button>
+      <button class="action-btn focusable" id="action-rt" tabindex="0">↺ Repost</button>
+      <button class="action-btn focusable" id="action-share" tabindex="0">↗ Share</button>
+    </div>
+  </div>
+  <div class="nav-hint">
+    <span>↑↓ navigate</span>
+    <span>↵ select · back-btn to return</span>
+  </div>
+</div>
+
+<script>
+// ── CONFIG: paste your Vercel URL here ──
+const API = 'https://x-mrbd-rhzes4u3c-militiaspack-9144s-projects.vercel.app/';
+
+const MOCK_TWEETS = [
+  { id:1, name:"Andrej Karpathy", handle:"@karpathy", initials:"AK", color:"#1d9bf0", time:"2m", fullTime:"11:42 AM · May 24, 2026", text:"The thing about #LLMs people keep missing: they're not retrieving knowledge, they're *compressing* world models into weights. Every forward pass is a decompression.", likes:8420, retweets:1830, replies:312, views:241000, liked:false, retweeted:false },
+  { id:2, name:"Sam Altman", handle:"@sama", initials:"SA", color:"#00ba7c", time:"14m", fullTime:"11:30 AM · May 24, 2026", text:"o4 is now the smartest model in the world at math. this was not true a year ago. the pace of improvement here is genuinely shocking even to us.", likes:31200, retweets:4900, replies:2100, views:1800000, liked:false, retweeted:false },
+  { id:3, name:"Lex Fridman", handle:"@lexfridman", initials:"LF", color:"#f91880", time:"1h", fullTime:"10:18 AM · May 24, 2026", text:"Just spent 4 hours talking to @elonmusk about physics, consciousness, and the nature of time. Full episode out tomorrow. #podcast", likes:44100, retweets:6700, replies:3800, views:3200000, liked:false, retweeted:false },
+  { id:4, name:"Paul Graham", handle:"@paulg", initials:"PG", color:"#ff7315", time:"2h", fullTime:"9:05 AM · May 24, 2026", text:"The best founders I know still answer their own support emails. Not because they have to. Because it's the fastest way to understand what you're actually building.", likes:19800, retweets:3200, replies:890, views:820000, liked:false, retweeted:false },
+  { id:5, name:"Yann LeCun", handle:"@ylecun", initials:"YL", color:"#7856ff", time:"3h", fullTime:"8:21 AM · May 24, 2026", text:"Stop calling everything with a next-token predictor 'reasoning'. LLMs do sophisticated pattern matching. Incredible, but different. #AI #ML", likes:12300, retweets:2900, replies:1700, views:610000, liked:false, retweeted:false },
+  { id:6, name:"Naval", handle:"@naval", initials:"N", color:"#00ba7c", time:"5h", fullTime:"6:44 AM · May 24, 2026", text:"The goal isn't work-life balance. It's work that doesn't feel like work.", likes:28600, retweets:5100, replies:720, views:1400000, liked:false, retweeted:false },
+];
+
+let tweets = [];
+let currentFocusIndex = 0;
+let currentScreen = 'loading';
+let currentTweetId = null;
+let scrollOffset = 0;
+const VISIBLE_COUNT = 3;
+
+function formatNum(n) {
+  if (n >= 1000000) return (n/1000000).toFixed(1)+'M';
+  if (n >= 1000) return (n/1000).toFixed(1)+'K';
+  return n.toString();
+}
+function colorizeText(t) {
+  return t.replace(/(#\w+)/g,'<span class="hashtag">$1</span>').replace(/(@\w+)/g,'<span class="mention">$1</span>');
+}
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(name+'-screen').classList.add('active');
+  currentScreen = name;
+}
+function timeAgo(d) {
+  const s = (Date.now() - new Date(d)) / 1000;
+  if (s < 60) return Math.floor(s)+'s';
+  if (s < 3600) return Math.floor(s/60)+'m';
+  if (s < 86400) return Math.floor(s/3600)+'h';
+  return Math.floor(s/86400)+'d';
+}
+
+// ── Boot: check for saved token first ──
+async function boot() {
+  const token = localStorage.getItem('x_token');
+  if (token) {
+    showScreen('loading');
+    await loadRealFeed(token);
+  } else {
+    await startLoginFlow();
+  }
+}
+
+// ── Show PIN on glasses, poll for token ──
+async function startLoginFlow() {
+  try {
+    const res = await fetch(API + '/api/auth/start');
+    const { pin, authUrl } = await res.json();
+
+    document.getElementById('pin-display').innerHTML =
+      pin.split('').map(d => `<div class="pin-digit">${d}</div>`).join('');
+    document.getElementById('login-url').textContent =
+      API.replace('https://','') + '/login';
+
+    showScreen('login');
+
+    const poll = setInterval(async () => {
+      try {
+        const r = await fetch(API + '/api/auth/poll?pin=' + pin);
+        const data = await r.json();
+        if (data.status === 'ok') {
+          clearInterval(poll);
+          localStorage.setItem('x_token', data.token);
+          document.getElementById('login-status-msg').textContent = 'Signed in! Loading...';
+          showScreen('loading');
+          await loadRealFeed(data.token);
+        } else if (data.status === 'expired') {
+          clearInterval(poll);
+          setTimeout(startLoginFlow, 1500);
+        }
+      } catch(e) {}
+    }, 3000);
+
+  } catch(e) {
+    // Backend not reachable — use mock data
+    tweets = MOCK_TWEETS;
+    showScreen('feed');
+    renderFeed();
+  }
+}
+
+// ── Fetch real timeline from X API ──
+async function loadRealFeed(token) {
+  try {
+    const meRes = await fetch('https://api.twitter.com/2/users/me', {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    const { data: me } = await meRes.json();
+
+    const tlRes = await fetch(
+      `https://api.twitter.com/2/users/${me.id}/timelines/reverse_chronological` +
+      `?tweet.fields=public_metrics,created_at&expansions=author_id&user.fields=name,username&max_results=20`,
+      { headers: { Authorization: 'Bearer ' + token } }
+    );
+    const tl = await tlRes.json();
+
+    if (tl.data) {
+      const users = {};
+      (tl.includes?.users || []).forEach(u => { users[u.id] = u; });
+      const colors = ['#1d9bf0','#00ba7c','#f91880','#ff7315','#7856ff'];
+      tweets = tl.data.map((t, i) => {
+        const a = users[t.author_id] || {};
+        return {
+          id: t.id,
+          name: a.name || 'Unknown',
+          handle: '@'+(a.username||'unknown'),
+          initials: (a.name||'U').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(),
+          color: colors[i % colors.length],
+          time: timeAgo(t.created_at),
+          fullTime: new Date(t.created_at).toLocaleString(),
+          text: t.text,
+          likes: t.public_metrics?.like_count || 0,
+          retweets: t.public_metrics?.retweet_count || 0,
+          replies: t.public_metrics?.reply_count || 0,
+          views: t.public_metrics?.impression_count || 0,
+          liked: false, retweeted: false,
+        };
+      });
+    } else {
+      // Token might be expired
+      localStorage.removeItem('x_token');
+      tweets = MOCK_TWEETS;
+    }
+  } catch(e) {
+    tweets = MOCK_TWEETS;
+  }
+  showScreen('feed');
+  renderFeed();
+}
+
+// ── Render feed ──
+function renderFeed() {
+  const area = document.getElementById('feed-area');
+  area.innerHTML = '';
+  const CARD_H = 170;
+  tweets.forEach((t, i) => {
+    const card = document.createElement('div');
+    card.className = 'tweet-card focusable' + (t.liked ? ' liked' : '');
+    card.tabIndex = 0;
+    card.style.top = ((i - scrollOffset) * CARD_H + 4) + 'px';
+    card.innerHTML = `
+      <div class="tweet-header">
+        <div class="avatar" style="background:${t.color}22;color:${t.color}">${t.initials}</div>
+        <div class="tweet-meta">
+          <div class="tweet-name">${t.name}</div>
+          <div class="tweet-handle">${t.handle}</div>
+        </div>
+        <div class="tweet-time">${t.time}</div>
+      </div>
+      <div class="tweet-text">${colorizeText(t.text.length>140?t.text.slice(0,137)+'…':t.text)}</div>
+      <div class="tweet-stats">
+        <div class="stat"><span>💬</span><span>${formatNum(t.replies)}</span></div>
+        <div class="stat rt"><span>↺</span><span>${formatNum(t.retweets)}</span></div>
+        <div class="stat ${t.liked?'liked':''}"><span class="like-icon">${t.liked?'♥':'♡'}</span><span>${formatNum(t.likes)}</span></div>
+        <div class="stat"><span>👁</span><span>${formatNum(t.views)}</span></div>
+      </div>`;
+    card.addEventListener('click', () => openDetail(i));
+    area.appendChild(card);
+    if (i < tweets.length - 1) {
+      const sep = document.createElement('div');
+      sep.className = 'tweet-sep';
+      sep.style.cssText = `position:absolute;top:${(i-scrollOffset)*CARD_H+CARD_H-1}px;width:560px;left:20px`;
+      area.appendChild(sep);
+    }
+  });
+  const cards = area.querySelectorAll('.tweet-card');
+  if (cards[currentFocusIndex]) cards[currentFocusIndex].focus();
+}
+
+function scrollToIndex(idx) {
+  if (idx < 0) idx = 0;
+  if (idx >= tweets.length) idx = tweets.length - 1;
+  currentFocusIndex = idx;
+  if (idx < scrollOffset) scrollOffset = idx;
+  if (idx >= scrollOffset + VISIBLE_COUNT) scrollOffset = idx - VISIBLE_COUNT + 1;
+  renderFeed();
+}
+
+// ── Detail ──
+function openDetail(idx) {
+  const t = tweets[idx];
+  currentTweetId = idx;
+  const av = document.getElementById('detail-avatar');
+  av.style.cssText = `width:42px;height:42px;font-size:16px;background:${t.color}22;color:${t.color}`;
+  av.textContent = t.initials;
+  document.getElementById('detail-name').textContent = t.name;
+  document.getElementById('detail-handle').textContent = t.handle;
+  document.getElementById('detail-text').innerHTML = colorizeText(t.text);
+  document.getElementById('detail-ts').textContent = t.fullTime;
+  document.getElementById('d-replies').textContent = formatNum(t.replies);
+  document.getElementById('d-retweets').textContent = formatNum(t.retweets);
+  document.getElementById('d-likes').textContent = formatNum(t.likes);
+  document.getElementById('d-views').textContent = formatNum(t.views);
+  const lb = document.getElementById('action-like');
+  lb.textContent = t.liked ? '♥ Liked' : '♡ Like';
+  lb.style.color = t.liked ? '#f91880' : '';
+  showScreen('detail');
+  document.getElementById('back-btn').focus();
+}
+
+function goBack() { showScreen('feed'); renderFeed(); }
+
+function toggleLike(idx) {
+  const t = tweets[idx]; t.liked = !t.liked; t.likes += t.liked ? 1 : -1;
+  document.getElementById('d-likes').textContent = formatNum(t.likes);
+  const b = document.getElementById('action-like');
+  b.textContent = t.liked ? '♥ Liked' : '♡ Like';
+  b.style.color = t.liked ? '#f91880' : '';
+}
+function toggleRetweet(idx) {
+  const t = tweets[idx]; t.retweeted = !t.retweeted; t.retweets += t.retweeted ? 1 : -1;
+  document.getElementById('d-retweets').textContent = formatNum(t.retweets);
+  const b = document.getElementById('action-rt');
+  b.textContent = t.retweeted ? '↺ Reposted' : '↺ Repost';
+  b.style.color = t.retweeted ? '#00ba7c' : '';
+}
+
+// ── Input ──
+document.addEventListener('keydown', function(e) {
+  if (currentScreen === 'loading' || currentScreen === 'login') return;
+  if (currentScreen === 'feed') {
+    if (e.key==='ArrowDown'||e.key==='ArrowRight') { scrollToIndex(currentFocusIndex+1); e.preventDefault(); }
+    else if (e.key==='ArrowUp'||e.key==='ArrowLeft') { scrollToIndex(currentFocusIndex-1); e.preventDefault(); }
+    else if (e.key==='Enter') { openDetail(currentFocusIndex); e.preventDefault(); }
+  } else if (currentScreen === 'detail') {
+    const f = Array.from(document.querySelectorAll('#detail-screen .focusable'));
+    const i = f.indexOf(document.activeElement);
+    if (e.key==='ArrowDown'||e.key==='ArrowRight') { f[(i+1)%f.length].focus(); e.preventDefault(); }
+    else if (e.key==='ArrowUp'||e.key==='ArrowLeft') { f[(i-1+f.length)%f.length].focus(); e.preventDefault(); }
+    else if (e.key==='Enter') {
+      const a = document.activeElement;
+      if (a===document.getElementById('back-btn')) goBack();
+      else if (a===document.getElementById('action-like')) toggleLike(currentTweetId);
+      else if (a===document.getElementById('action-rt')) toggleRetweet(currentTweetId);
+      e.preventDefault();
+    } else if (e.key==='Escape') { goBack(); e.preventDefault(); }
+  }
+});
+
+document.getElementById('back-btn').addEventListener('click', goBack);
+document.getElementById('action-like').addEventListener('click', () => toggleLike(currentTweetId));
+document.getElementById('action-rt').addEventListener('click', () => toggleRetweet(currentTweetId));
+
+boot();
+</script>
+</body>
+</html>
