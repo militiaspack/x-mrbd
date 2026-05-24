@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sign in to X Feed</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #000; color: #fff;
+      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 20px;
+    }
+    .card {
+      background: #111; border: 1px solid #222;
+      border-radius: 16px; padding: 40px 32px;
+      max-width: 400px; width: 100%; text-align: center;
+    }
+    .logo { font-size: 48px; font-weight: 900; color: #1d9bf0; margin-bottom: 24px; }
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    p { font-size: 15px; color: #666; margin-bottom: 32px; line-height: 1.5; }
+    .btn {
+      display: block; width: 100%; padding: 14px;
+      background: #1d9bf0; color: #fff; border: none;
+      border-radius: 30px; font-size: 16px; font-weight: 700;
+      cursor: pointer; text-decoration: none;
+      transition: background 150ms;
+    }
+    .btn:hover { background: #1a8cd8; }
+    .error { color: #f91880; font-size: 14px; margin-top: 16px; display: none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">𝕏</div>
+    <h1>Sign in with X</h1>
+    <p>Tap the button below to connect your X account to your Ray-Ban glasses.</p>
+    <a class="btn" id="login-btn" href="#">Sign in with X</a>
+    <div class="error" id="error-msg">Something went wrong. Please try again.</div>
+  </div>
+
+  <script>
+    const API = 'https://x-mrbd.vercel.app';
+
+    async function init() {
+      // Get PIN from URL if passed, otherwise fetch a new one
+      const params = new URLSearchParams(window.location.search);
+      const pin = params.get('pin');
+
+      try {
+        let authUrl;
+        if (pin) {
+          // PIN was passed in URL — just fetch the authUrl for it
+          const res = await fetch(`${API}/api/auth/start?pin=${pin}`);
+          const data = await res.json();
+          authUrl = data.authUrl;
+        } else {
+          const res = await fetch(`${API}/api/auth/start`);
+          const data = await res.json();
+          authUrl = data.authUrl;
+        }
+        document.getElementById('login-btn').href = authUrl;
+      } catch(e) {
+        document.getElementById('error-msg').style.display = 'block';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
